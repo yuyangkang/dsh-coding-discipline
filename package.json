@@ -1,11 +1,12 @@
 {
   "name": "dsh-coding-discipline",
-  "version": "0.1.0",
-  "description": "Coding-discipline rules for DeepSeek Harness: an always-on prompt section, an on-demand checklist skill, editable rule modules and check commands with switches, plus /coding-rules and /coding-checks.",
+  "version": "0.2.0",
+  "description": "Coding-discipline rules for DeepSeek Harness: an always-on prompt section, an on-demand checklist skill, editable rule modules and check commands with switches, plus /coding-rules and /coding-checks commands and a sidebar settings page.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
+    "./client": "./lib/client.js",
     "./package.json": "./package.json"
   },
   "files": [
@@ -34,6 +35,12 @@
   "dsh": {
     "bundle": {
       "patch": "cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
     }
   }
 }

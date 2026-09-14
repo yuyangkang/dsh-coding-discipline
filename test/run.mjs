@@ -287,6 +287,104 @@ check('toggling the skill switch disposes and restores the registration', () => 
   assert(record.skills.length === before + 1, 'turning the skill back on did not re-register it')
 })
 
+// ── package-private RPC (host side of the settings page) ────────────────────
+
+check('harness.handle registers the config RPC surface', () => {
+  const rpc = {}
+  const previous = globalThis.harness
+  globalThis.harness = { handle: (name, fn) => { rpc[name] = fn } }
+  try {
+    plugin.apply(fakeCtx().ctx)
+  } finally {
+    if (previous === undefined) delete globalThis.harness
+    else globalThis.harness = previous
+  }
+  const methods = Object.keys(rpc).sort()
+  assert(
+    JSON.stringify(methods) === JSON.stringify(['coding-discipline:getConfig', 'coding-discipline:listModules', 'coding-discipline:paths', 'coding-discipline:reload', 'coding-discipline:reset', 'coding-discipline:setConfig']),
+    `unexpected RPC methods: ${methods.join(', ')}`,
+  )
+
+  const config = rpc['coding-discipline:getConfig']()
+  assert(config.enabled === true, 'getConfig did not return the switch document')
+  const modules = rpc['coding-discipline:listModules']()
+  assert(modules.length === 4, `listModules returned ${modules.length} modules`)
+  const paths = rpc['coding-discipline:paths']()
+  assert(typeof paths.config === 'string' && typeof paths.modules === 'string', 'paths did not return strings')
+
+  assert(rpc['coding-discipline:setConfig']({ ...config, enabled: false }) === true, 'setConfig did not return true')
+  assert(store.readConfig().config.enabled === false, 'setConfig did not persist')
+  rpc['coding-discipline:setConfig']({ ...config, enabled: true })
+  assert(store.readConfig().config.enabled === true, 'setConfig did not restore')
+
+  assert(rpc['coding-discipline:reset']() === true, 'reset did not return true')
+  assert(rpc['coding-discipline:reload']() === true, 'reload did not return true')
+})
+
+check('apply() without harness still works', () => {
+  const sandbox = fakeCtx()
+  if ('harness' in globalThis) throw new Error('harness present in previous test context')
+  plugin.apply(sandbox.ctx)
+  assert(sandbox.record.sections.length === 1, 'section missing without harness')
+})
+
+// ── client bundle (sidebar settings page) ───────────────────────────────────
+
+function loadClientBundle() {
+  const source = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
+  const registrations = []
+  const window = { __ModuleLoader__: { load: (registration) => registrations.push(registration) } }
+  const ReactStub = {
+    createElement: (...args) => ({ __type: 'react-element', args }),
+    useState: (initial) => [initial, () => {}],
+    useEffect: () => {},
+    useCallback: (fn) => fn,
+  }
+  const sandbox = {
+    window,
+    React: ReactStub,
+    console,
+  }
+  const fn = new Function('window', 'React', 'console', source)
+  fn(sandbox.window, sandbox.React, sandbox.console)
+  return { source, registrations, ReactStub }
+}
+
+check('client bundle registers one factory and exports apply/inject', () => {
+  const { registrations } = loadClientBundle()
+  assert(registrations.length === 1, `expected 1 factory registration, got ${registrations.length}`)
+  const registration = registrations[0]
+  assert(registration.id === 'dsh-coding-discipline', `unexpected factory id: ${registration.id}`)
+  assert(typeof registration.factory === 'function', 'factory must be a function')
+  const materialized = registration.factory((spec) => { throw new Error(`no external requires allowed, got ${spec}`) })
+  assert(typeof materialized.apply === 'function', 'factory exports apply')
+  assert(typeof materialized.inject === 'function', 'factory exports inject')
+})
+
+check('client apply() registers the settings.section page', () => {
+  const { registrations } = loadClientBundle()
+  const recordSlots = []
+  const ctx = {
+    slots: {
+      inject: (key, callback) => { recordSlots.push({ key, callback }); return () => {} },
+      register: (registration, component) => { recordSlots[0].registration = registration; recordSlots[0].component = component; return () => {} },
+    },
+  }
+  registrations[0].factory((spec) => { throw new Error(`no external module ${spec}`) }).apply(ctx)
+  assert(recordSlots.length === 1, 'client apply did not inject a slot')
+  assert(recordSlots[0].key === 'settings.section', `unexpected slot key: ${recordSlots[0].key}`)
+  // The inject callback runs the register call; the registration object is captured by the stub.
+  recordSlots[0].callback()
+  const registration = recordSlots[0].registration
+  assert(registration.name === 'settings.section', 'unexpected slot name')
+  assert(registration.id === 'coding-discipline', 'unexpected slot id')
+  assert(registration.order === 50, `unexpected order: ${registration.order}`)
+  assert(registration.label() === '编码纪律', 'unexpected label')
+  assert(typeof recordSlots[0].component === 'function', 'settings page component must be a function')
+})
+
+// ── apply() yields teardown disposers through ctx.effect ────────────────────
+
 check('apply() yields teardown disposers through ctx.effect', () => {
   assert(record.effects.length === 1, `expected 1 effect, got ${record.effects.length}`)
   assert(record.disposers.filter((entry) => typeof entry === 'function').length >= 1, 'no teardown disposer yielded')

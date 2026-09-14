@@ -1,9 +1,11 @@
 # dsh-coding-discipline — an always-on coding-discipline prompt section, an
-# on-demand checklist skill, and the /coding-rules and /coding-checks commands.
+# on-demand checklist skill, the /coding-rules and /coding-checks commands, and a
+# sidebar settings page (client half, registered into `settings.section`).
 #
 # This row publishes no service, so it needs no isolate realm and mounts once as
 # a process-global bundle row: its prompt section and runtime skill therefore
-# apply to every agent and every preset in this profile.
+# apply to every agent and every preset in this profile. The client half needs
+# the web platform, declared via the package's `dsh.client` block.
 #
 # Rule text and switches are NOT in this file. They live in the user-editable
 # store under $DSH_HOME/coding-discipline/ (config.json + modules/*.md), which

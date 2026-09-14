@@ -2,13 +2,14 @@
 
 给 DeepSeek Harness 的**编码纪律**插件：让 agent 在写代码时先读项目约定、保持最小变更、写完自检明显 bug、按最窄命令验证后如实报告。
 
-它同时做三件事：
+它同时做四件事：
 
 | 贡献 | 生效方式 | 载体 |
 | --- | --- | --- |
 | **常驻段落** | 每个会话、每次请求都在 system prompt 里 | `ctx.systemPrompt.section()`，位置紧跟 persona（order 100） |
 | **按需 skill** | 只在 skill 目录里列一行，需要时由模型加载 | `ctx.skills.register()`，名字 `coding-discipline` |
 | **两条斜杠命令** | 在对话里查看与改开关 | `/coding-rules`、`/coding-checks` |
+| **侧边栏操作页** | Web 侧边栏 → 设置 → 编码纪律，图形化开关/重载/重置 | 客户端 `settings.section` + 包私有 RPC（`host.call` ↔ `harness.handle`） |
 
 规则正文**不在代码里**。它是一组可随手编辑的 Markdown 文件，改完保存即生效（下一次请求就带上），不需要重新打包或重启。
 
@@ -89,6 +90,17 @@ node scripts/install.mjs --profile web --uninstall
 /coding-checks off lint
 ```
 
+## 侧边栏操作页
+
+Web 界面里，侧边栏底部齿轮 → **设置** → **编码纪律** 就是图形化操作页（`settings.section`，order 50）。它和 `/coding-rules` 读写同一份开关：
+
+- 四个主开关（总开关 / 常驻段落 / 注册 skill / 文件监听）
+- 每个规则模块的「启用」与「常驻段落」两个开关
+- 重载规则、重置为默认两个按钮
+- 显示开关与模块文件的真实路径
+
+它通过包私有 RPC 读写的：客户端 `host.call("coding-discipline:getConfig" | "setConfig" | "listModules" | "paths" | "reload" | "reset")` 对应对端 `harness.handle` 同名的处理器（`lib/index.js`），因此**与命令行开关完全一致、立即落盘**。`lib/client.js` 是手写的客户端 bundle（`window.__ModuleLoader__.load({id, factory})`），不依赖任何浏览器侧 npm 包——`React`、`host`、`console`、`ctx.slots` 都来自运行时内置。
+
 ---
 
 ## 规则与开关文件
@@ -138,4 +150,4 @@ skill 正文在注册时是字符串，所以改文件后的热更新靠 `fs.wat
 node test/run.mjs
 ```
 
-20 项离线用例：播种不覆盖用户编辑、段落/skill 渲染、各类开关、新模块发现、损坏配置的回退、`apply()` 对三个服务的注册契约、命令子命令与错误分支、teardown。
+24 项离线用例：播种不覆盖用户编辑、段落/skill 渲染、各类开关、新模块发现、损坏配置的回退、`apply()` 对三个服务的注册契约、命令子命令与错误分支、RPC 处理器、客户端 bundle 的形状与 `settings.section` 注册、teardown。
