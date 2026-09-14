@@ -1,6 +1,6 @@
 {
   "name": "dsh-coding-discipline",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Coding-discipline rules for DeepSeek Harness: an always-on prompt section, an on-demand checklist skill, editable rule modules and check commands with switches, plus /coding-rules and /coding-checks commands and a sidebar settings page.",
   "type": "module",
   "main": "lib/index.js",

@@ -99,7 +99,7 @@ Web 界面里，侧边栏底部齿轮 → **设置** → **编码纪律** 就是
 - 重载规则、重置为默认两个按钮
 - 显示开关与模块文件的真实路径
 
-它通过包私有 RPC 读写的：客户端 `host.call("coding-discipline:getConfig" | "setConfig" | "listModules" | "paths" | "reload" | "reset")` 对应对端 `harness.handle` 同名的处理器（`lib/index.js`），因此**与命令行开关完全一致、立即落盘**。`lib/client.js` 是手写的客户端 bundle（`window.__ModuleLoader__.load({id, factory})`），不依赖任何浏览器侧 npm 包——`React`、`host`、`console`、`ctx.slots` 都来自运行时内置。
+它通过 HTTP bridge 读写：客户端 `fetch("/api/coding-discipline/getConfig" | "setConfig" | "listModules" | "paths" | "reload" | "reset")` 对应对端 `webServer` 上的同名 JSON 端点（`lib/index.js` 的 `makeBridgeRoutes`），因此**与命令行开关完全一致、立即落盘**。`lib/client.js` 是手写的客户端 bundle（`window.__ModuleLoader__.load({id, factory})`），只 `require` 浏览器平台的 seed 模块（`react`、`react/jsx-runtime`），通过 `ctx.slots` 注册 `settings.section` 页面，不需要也不使用 `host`/`harness` 动态包内置。
 
 ---
 
@@ -141,7 +141,7 @@ skill 正文在注册时是字符串，所以改文件后的热更新靠 `fs.wat
 
 ## 兼容性
 
-- DSH `0.1.5-rc.1` 上验证通过：`systemPrompt.section` / `skills.register` / `commands.register` 三个契约已在实际运行时实测。
+- DSH `0.1.5-rc.1` 上验证通过：`systemPrompt.section` / `skills.register` / `commands.register` 与 `webServer` HTTP bridge 四类契约为实际运行时实测；客户端使用浏览器的 9 个 seed 模块（`react` 等），不依赖 `host`/`harness` 动态包内置。
 - Node >= 20（`fs.watch` 的 `recursive` 选项）。
 
 ## 测试
@@ -150,4 +150,4 @@ skill 正文在注册时是字符串，所以改文件后的热更新靠 `fs.wat
 node test/run.mjs
 ```
 
-24 项离线用例：播种不覆盖用户编辑、段落/skill 渲染、各类开关、新模块发现、损坏配置的回退、`apply()` 对三个服务的注册契约、命令子命令与错误分支、RPC 处理器、客户端 bundle 的形状与 `settings.section` 注册、teardown。
+25 项离线用例：播种不覆盖用户编辑、段落/skill 渲染、各类开关、新模块发现、损坏配置的回退、`apply()` 对服务的注册契约、命令子命令与错误分支、桥接路由、客户端 bundle 的形状（seed 模块 require + `settings.section` 注册）、teardown。

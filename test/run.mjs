@@ -213,6 +213,10 @@ function fakeCtx() {
         step = iterator.next()
       }
     },
+    // Optional-service read: real Cordis contexts always provide get()/inject();
+    // without a registered webServer the bridge path is a no-op here.
+    get: (name) => undefined,
+    inject: () => {},
   }
   return { ctx, record }
 }
@@ -340,30 +344,37 @@ function loadClientBundle() {
     useEffect: () => {},
     useCallback: (fn) => fn,
   }
-  const sandbox = {
-    window,
-    React: ReactStub,
-    console,
+  // The effective module map is provided as a JSON object injected into the
+  // bundle source (used by Browser-based loaders) OR through the trailing
+  // factory require. Version 2 of the bundle requires the platform seed
+  // modules (`react`, `react/jsx-runtime`) exactly like every shipped client
+  // bundle, so the factory require must answer them.
+  const jsx = (type, props, ...children) => ({ __type: 'react-element', type, props, children })
+  const requireStub = (spec) => {
+    if (spec === 'react') return ReactStub
+    if (spec === 'react/jsx-runtime') return { jsx }
+    throw new Error(`unexpected external require ${spec}`)
   }
+  const sandbox = { window, React: ReactStub, console }
   const fn = new Function('window', 'React', 'console', source)
   fn(sandbox.window, sandbox.React, sandbox.console)
-  return { source, registrations, ReactStub }
+  return { source, registrations, ReactStub, requireStub }
 }
 
 check('client bundle registers one factory and exports apply/inject', () => {
-  const { registrations } = loadClientBundle()
+  const { registrations, requireStub } = loadClientBundle()
   assert(registrations.length === 1, `expected 1 factory registration, got ${registrations.length}`)
   const registration = registrations[0]
   assert(registration.id === 'dsh-coding-discipline', `unexpected factory id: ${registration.id}`)
   assert(typeof registration.factory === 'function', 'factory must be a function')
-  const materialized = registration.factory((spec) => { throw new Error(`no external requires allowed, got ${spec}`) })
+  const materialized = registration.factory(requireStub)
   assert(typeof materialized.apply === 'function', 'factory exports apply')
   assert(Array.isArray(materialized.inject), 'factory exports inject as an array')
   assert(materialized.inject.includes('slots'), 'inject should list the slots service')
 })
 
 check('client apply() registers the settings.section page', () => {
-  const { registrations } = loadClientBundle()
+  const { registrations, requireStub } = loadClientBundle()
   const recordSlots = []
   const slots = {
     inject: (key, callback) => { recordSlots.push({ key, callback }); return () => {} },
@@ -372,7 +383,7 @@ check('client apply() registers the settings.section page', () => {
   const ctx = {
     get: (name) => (name === 'slots' ? slots : undefined),
   }
-  registrations[0].factory((spec) => { throw new Error(`no external module ${spec}`) }).apply(ctx)
+  registrations[0].factory(requireStub).apply(ctx)
   assert(recordSlots.length === 1, 'client apply did not inject a slot')
   assert(recordSlots[0].key === 'settings.section', `unexpected slot key: ${recordSlots[0].key}`)
   // The inject callback runs the register call; the registration object is captured by the stub.
@@ -386,11 +397,11 @@ check('client apply() registers the settings.section page', () => {
 })
 
 check('client apply() is a no-op when slots is unavailable', () => {
-  const { registrations } = loadClientBundle()
+  const { registrations, requireStub } = loadClientBundle()
   const ctx = { get: (name) => undefined }
   let threw = false
   try {
-    registrations[0].factory((spec) => { throw new Error(`no external module ${spec}`) }).apply(ctx)
+    registrations[0].factory(requireStub).apply(ctx)
   } catch (error) {
     threw = true
   }
