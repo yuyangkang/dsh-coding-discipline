@@ -1,0 +1,39 @@
+{
+  "name": "dsh-coding-discipline",
+  "version": "0.1.0",
+  "description": "Coding-discipline rules for DeepSeek Harness: an always-on prompt section, an on-demand checklist skill, editable rule modules and check commands with switches, plus /coding-rules and /coding-checks.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "rules",
+    "scripts",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "coding",
+    "rules",
+    "conventions",
+    "self-review"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "dsh-coding-discipline-install": "scripts/install.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "cordis.patch.yml"
+    }
+  }
+}

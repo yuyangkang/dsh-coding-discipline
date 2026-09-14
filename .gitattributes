@@ -1,0 +1,5 @@
+# Keep every text file LF in the repository so a checkout on Windows, macOS, or
+# Linux produces byte-identical content for the .md rules and the .mjs scripts.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

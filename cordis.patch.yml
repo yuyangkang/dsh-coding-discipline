@@ -1,0 +1,13 @@
+# dsh-coding-discipline — an always-on coding-discipline prompt section, an
+# on-demand checklist skill, and the /coding-rules and /coding-checks commands.
+#
+# This row publishes no service, so it needs no isolate realm and mounts once as
+# a process-global bundle row: its prompt section and runtime skill therefore
+# apply to every agent and every preset in this profile.
+#
+# Rule text and switches are NOT in this file. They live in the user-editable
+# store under $DSH_HOME/coding-discipline/ (config.json + modules/*.md), which
+# the plugin seeds from its own rules/ directory on first use.
+- insert:
+    - id: coding-discipline
+      name: dsh-coding-discipline
