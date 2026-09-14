@@ -358,17 +358,19 @@ check('client bundle registers one factory and exports apply/inject', () => {
   assert(typeof registration.factory === 'function', 'factory must be a function')
   const materialized = registration.factory((spec) => { throw new Error(`no external requires allowed, got ${spec}`) })
   assert(typeof materialized.apply === 'function', 'factory exports apply')
-  assert(typeof materialized.inject === 'function', 'factory exports inject')
+  assert(Array.isArray(materialized.inject), 'factory exports inject as an array')
+  assert(materialized.inject.includes('slots'), 'inject should list the slots service')
 })
 
 check('client apply() registers the settings.section page', () => {
   const { registrations } = loadClientBundle()
   const recordSlots = []
+  const slots = {
+    inject: (key, callback) => { recordSlots.push({ key, callback }); return () => {} },
+    register: (registration, component) => { recordSlots[0].registration = registration; recordSlots[0].component = component; return () => {} },
+  }
   const ctx = {
-    slots: {
-      inject: (key, callback) => { recordSlots.push({ key, callback }); return () => {} },
-      register: (registration, component) => { recordSlots[0].registration = registration; recordSlots[0].component = component; return () => {} },
-    },
+    get: (name) => (name === 'slots' ? slots : undefined),
   }
   registrations[0].factory((spec) => { throw new Error(`no external module ${spec}`) }).apply(ctx)
   assert(recordSlots.length === 1, 'client apply did not inject a slot')
@@ -381,6 +383,18 @@ check('client apply() registers the settings.section page', () => {
   assert(registration.order === 50, `unexpected order: ${registration.order}`)
   assert(registration.label() === '编码纪律', 'unexpected label')
   assert(typeof recordSlots[0].component === 'function', 'settings page component must be a function')
+})
+
+check('client apply() is a no-op when slots is unavailable', () => {
+  const { registrations } = loadClientBundle()
+  const ctx = { get: (name) => undefined }
+  let threw = false
+  try {
+    registrations[0].factory((spec) => { throw new Error(`no external module ${spec}`) }).apply(ctx)
+  } catch (error) {
+    threw = true
+  }
+  assert(!threw, 'apply should not throw when slots is missing')
 })
 
 // ── apply() yields teardown disposers through ctx.effect ────────────────────
